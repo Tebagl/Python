@@ -28,18 +28,31 @@ except Exception as e:
 # 2. Funciones Core (Modularidad y Responsabilidad Única)
 
 def extraer_noticia(url):
-    """Descarga, analiza y devuelve el objeto Article de newspaper."""
-    articulo = Article(url, lang="es")
+    """Descarga la noticia disfrazándose de navegador real para evitar el Error 403."""
+    
+    # 1. Preparamos el "disfraz" (User-Agent)
+    config = Config()
+    # Este string tan largo le dice a la web que somos un PC normal usando Chrome
+    config.browser_user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    config.request_timeout = 10 
+
+    # 2. Creamos el artículo PASÁNDOLE LA CONFIGURACIÓN (Importante)
+    articulo = Article(url, language='es', config=config)
+    
+    # 3. Descargamos y procesamos
     articulo.download()
     articulo.parse()
+    
     return articulo
 
-
-def generar_audio(texto, archivo_salida="noticia.mp3"):
-    """Convierte el texto en audio (MP3) usando gTTS y lo guarda localmente."""
+def generar_audio(texto, nombre_archivo="noticia.mp3"):
+    """Guarda el audio en la MISMA carpeta que el script (Ruta Absoluta)."""
+    carpeta_script = os.path.dirname(os.path.abspath(__file__))
+    ruta_completa = os.path.join(carpeta_script, nombre_archivo)
+    
     voz = gTTS(text=texto, lang="es")
-    voz.save(archivo_salida)
-    return archivo_salida
+    voz.save(ruta_completa)
+    return ruta_completa
 
 
 def convertir_a_voz():
@@ -67,22 +80,26 @@ def convertir_a_voz():
         messagebox.showerror("Error", f"Ocurrió un problema: {type(e).__name__} - {e}")
         label_estado.config(text="Error al convertir", fg="red")
 
-
-def reproducir_audio(audio):
-    """Abre el archivo con el reproductor predeterminado del sistema."""
+def reproducir_audio(nombre_archivo):
+    """Busca y reproduce el audio desde la MISMA carpeta que el script."""
+    
+    # 1. Calculamos la ruta exacta otra vez (igual que al guardar)
+    carpeta_script = os.path.dirname(os.path.abspath(__file__))
+    ruta_completa = os.path.join(carpeta_script, nombre_archivo)
+    
     try:
         if sys.platform == "linux":
-            # xdg-open es el comando universal de Linux para abrir archivos
-            subprocess.call(["xdg-open", audio]) 
-        elif sys.platform == "darwin": # macOS
-            subprocess.call(["open", audio])
-        else: # Windows
-            os.startfile(audio)
+            subprocess.call(["xdg-open", ruta_completa]) # <--- Ahora usamos la ruta completa
+        elif sys.platform == "darwin":
+            subprocess.call(["open", ruta_completa])
+        else:
+            os.startfile(ruta_completa)
             
     except FileNotFoundError:
-        messagebox.showerror("Error", "El archivo de audio no existe.")
+        messagebox.showerror("Error", f"No se encuentra el archivo en:\n{ruta_completa}")
     except Exception as e:
-        messagebox.showerror("Error", f"No se pudo abrir el reproductor: {e}")
+        messagebox.showerror("Error", f"Error al reproducir: {e}")
+
 
 # 3. Interfaz Gráfica (tkinter)
 
