@@ -10,12 +10,20 @@ import time
 # --- I. Funciones y Variables Globales de Lectura (Constantes) ---
 
 def cargar_videos():
-    """Carga las URLs de YouTube desde el archivo 'videos_youtube.txt'."""
+    """Carga las URLs usando la RUTA ABSOLUTA del archivo."""
     try:
-        with open("videos_youtube.txt", 'r') as archivo_objeto:
+        # 1. Obtenemos la ruta de la carpeta donde está este script
+        carpeta_script = os.path.dirname(os.path.abspath(__file__))
+        
+        # 2. Creamos la ruta completa al archivo de texto
+        ruta_archivo = os.path.join(carpeta_script, "videos_youtube.txt")
+        
+        # 3. Abrimos el archivo usando la ruta completa
+        with open(ruta_archivo, 'r') as archivo_objeto:
             return [linea.strip() for linea in archivo_objeto if linea.strip()]
+            
     except FileNotFoundError:
-        messagebox.showerror("Error", "Archivo 'videos_youtube.txt' no encontrado.")
+        messagebox.showerror("Error", f"No se encuentra el archivo en:\n{ruta_archivo}")
         return []
 
 # Constantes del programa, accesibles por la clase
