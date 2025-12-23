@@ -4,9 +4,9 @@ Este repositorio contiene una colección de scripts y aplicaciones desarrolladas
 
 ## Contenido del Repositorio
 
-1.  **Lector de Noticias con Voz:** Herramienta de automatización que convierte artículos web a audio.
+1.  **Alarma YouTube:** Reloj despertador con interfaz gráfica que reproduce videos aleatorios.
 2.  **Arcade Pong POO:** Recreación del clásico juego usando Programación Orientada a Objetos y la librería Turtle.
-3.  **Alarma YouTube:** Reloj despertador con interfaz gráfica que reproduce videos aleatorios.
+3.  **Lector de Noticias con Voz:** Herramienta de automatización que convierte artículos web a audio.
 
 ## Autor
 **Teba García Lozano**
