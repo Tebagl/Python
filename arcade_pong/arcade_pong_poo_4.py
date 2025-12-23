@@ -10,13 +10,14 @@ programar el juego de arcade Pong con POO
 autor: Teba García Lozano
 fecha: 15-07-2025
 """
+
 # standar modules
 import turtle
 import threading
 import time
-# Nota: La librería playsound a veces es difícil de configurar o puede fallar. 
-# Si el archivo "pong.mp3" no está en la misma carpeta, fallará.
-from playsound import playsound 
+import os           # <--- NUEVO: Para encontrar la ruta del archivo
+import sys          # <--- NUEVO: Para detectar el sistema operativo
+import subprocess   # <--- NUEVO: Para reproducir audio sin playsound
 
 # --- I. CLASES DE OBJETOS DEL JUEGO ---
 
@@ -30,16 +31,13 @@ class Pala(turtle.Turtle):
         self.shapesize(stretch_wid=5, stretch_len=1)
         self.penup()
         self.goto(x, 0)
-        # Limites definidos en JuegoPong.bucle_juego
         self.LIMITE_Y = 240 
 
     def mover_arriba(self):
-        # NOTA: Límite superior corregido a 250 para mejor manejo
         if self.ycor() < 250:
             self.sety(self.ycor() + 20)
 
     def mover_abajo(self):
-        # NOTA: Límite inferior corregido a -240 para mejor manejo
         if self.ycor() > -240:
             self.sety(self.ycor() - 20)
 
@@ -55,7 +53,6 @@ class Pelota(turtle.Turtle):
         self.goto(0, 0)
         self.dx = 4
         self.dy = 4
-        # Límite superior/inferior para el rebote en el bucle principal
         self.LIMITE_Y = 290 
 
     def mover(self):
@@ -72,12 +69,12 @@ class Marcador(turtle.Turtle):
         self.color("white")
         self.penup()
         self.hideturtle()
-        self.goto(0, 260) # Posición ajustada a la parte superior (260)
+        self.goto(0, 260) 
 
     def actualizar(self, puntos_izq, puntos_drch):
         """Dibuja el marcador."""
         self.clear()
-        self.write(f"{puntos_izq}      {puntos_drch}", align="center", font=("Fixedsys", 36, "bold")) # Tamaño de fuente ajustado
+        self.write(f"{puntos_izq}      {puntos_drch}", align="center", font=("Fixedsys", 36, "bold"))
 
 
 class Mensaje(turtle.Turtle):
@@ -108,13 +105,13 @@ class JuegoPong:
         self.ventana.title("---PONG---ARCADE---")
         self.ventana.bgcolor("black")
         self.ventana.setup(width=800, height=600)
-        self.ventana.tracer(0) # Desactiva el auto-refresco para control manual
+        self.ventana.tracer(0) 
 
         # Estado del juego
         self.puntos_izq = 0 
         self.puntos_drch = 0 
         self.juego_activo = False
-        self.VELOCIDAD_JUEGO = 20 # Milisegundos para el refresco (50 FPS)
+        self.VELOCIDAD_JUEGO = 20 
 
         # Creación de objetos
         self.pala_izq = Pala(-350)
@@ -132,14 +129,10 @@ class JuegoPong:
 
         # Iniciar el bucle de juego recursivo
         self.bucle_juego()
-        # FUNCIÓN EXTERNA: self.ventana.mainloop() (turtle.Screen)
         self.ventana.mainloop()
 
     def configurar_controles(self):
-        """Asigna las funciones de movimiento y inicio a las teclas."""
-        # FUNCIÓN EXTERNA: self.ventana.listen() (turtle.Screen)
         self.ventana.listen()
-        # FUNCIÓN EXTERNA: self.ventana.onkeypress() (turtle.Screen)
         self.ventana.onkeypress(self.pala_izq.mover_arriba, "w")
         self.ventana.onkeypress(self.pala_izq.mover_abajo, "s")
         self.ventana.onkeypress(self.pala_drch.mover_arriba, "Up")
@@ -147,34 +140,64 @@ class JuegoPong:
         self.ventana.onkeypress(self.iniciar_juego, "Return")
         
     def actualizar_marcador(self):
-        """Llama al método actualizar del objeto Marcador."""
         self.marcador.actualizar(self.puntos_izq, self.puntos_drch)
         
-    # --- Gestión de Sonido (Encapsulado) ---
+    # --- Gestión de Sonido (UNIVERSAL: WINDOWS / MAC / LINUX) ---
     def reproducir_sonido(self):
-        """Ejecuta el sonido de rebote en un hilo secundario."""
-        # FUNCIÓN EXTERNA: threading.Thread() y .start() (threading)
-        # Usa lambda para llamar a playsound sin bloquear el bucle principal.
-        threading.Thread(target=lambda: playsound("pong.mp3", block=False), daemon=True).start()
+        """Reproduce sonido compatible con cualquier S.O. sin librerías externas."""
+        
+        # 1. Calcular ruta absoluta (blindado contra errores de carpeta)
+        carpeta_script = os.path.dirname(os.path.abspath(__file__))
+        ruta_audio = os.path.join(carpeta_script, "pong.mp3")
+        
+        def _play():
+            try:
+                # --- CASO LINUX ---
+                if sys.platform == "linux":
+                    # Intentamos mpv (que ya tienes) silenciando la salida
+                    subprocess.run(["mpv", "--no-terminal", "--volume=80", ruta_audio], 
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+                # --- CASO MAC (Darwin) ---
+                elif sys.platform == "darwin":
+                    # afplay es el reproductor nativo de terminal en macOS
+                    subprocess.run(["afplay", ruta_audio], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+                # --- CASO WINDOWS ---
+                elif sys.platform == "win32":
+                    # En Windows, usar subprocess es lento. Usamos ctypes para acceder 
+                    # al sistema multimedia (winmm) directamente. Es nativo y rápido.
+                    import ctypes
+                    # Comando MCI para reproducir MP3
+                    mci = ctypes.windll.winmm.mciSendStringW
+                    alias = "pong_sound"
+                    # Abrir, reproducir y cerrar (Comandos de texto MCI)
+                    mci(f'open "{ruta_audio}" type mpegvideo alias {alias}', None, 0, None)
+                    mci(f'play {alias} wait', None, 0, None)
+                    mci(f'close {alias}', None, 0, None)
+
+            except Exception as e:
+                # Si falla el audio, el juego no se rompe, solo imprime el error
+                print(f"Error de audio ({sys.platform}): {e}")
+
+        # 2. Ejecutar en hilo secundario para no congelar el juego (Daemon)
+        threading.Thread(target=_play, daemon=True).start()
         
     # --- Lógica de Juego ---
     
     def iniciar_juego(self):
-        """Activa el bucle de juego y oculta el mensaje de inicio."""
         self.juego_activo = True
         self.mensaje.ocultar()
 
     def reiniciar(self):
-        """Reinicia la posición de la pelota, palas y el estado del juego."""
         self.juego_activo = False
         self.pelota.goto(0, 0)
-        self.pelota.dx *= -1 # Cambia la dirección al reiniciar para alternar el saque
+        self.pelota.dx *= -1 
         self.pala_izq.goto(-350, 0)
         self.pala_drch.goto(350, 0)
         self.mensaje.mostrar("PRESS ENTER TO START")
         
     def bucle_juego(self):
-        """Bucle principal recursivo del juego."""
         if self.juego_activo:
             self.pelota.mover()
 
@@ -183,7 +206,7 @@ class JuegoPong:
                 self.pelota.dy *= -1
                 self.reproducir_sonido()
 
-            # 2. Punto (Fuera del límite X)
+            # 2. Punto
             if abs(self.pelota.xcor()) > 390:
                 if self.pelota.xcor() > 0:
                     self.puntos_izq += 1
@@ -193,27 +216,20 @@ class JuegoPong:
                 self.actualizar_marcador()
                 self.reiniciar()
                 
-            # 3. Rebote con Palas (Colisiones)
-            
-            # Rebote con pala_drch
+            # 3. Rebote con Palas
             if (340 < self.pelota.xcor() < 350 and 
                 self.pala_drch.ycor() - 50 < self.pelota.ycor() < self.pala_drch.ycor() + 50):
                 self.pelota.setx(340)
                 self.pelota.dx *= -1
                 self.reproducir_sonido()
 
-            # Rebote con pala_izq
             if (-350 < self.pelota.xcor() < -340 and 
                 self.pala_izq.ycor() - 50 < self.pelota.ycor() < self.pala_izq.ycor() + 50):
                 self.pelota.setx(-340)
                 self.pelota.dx *= -1
                 self.reproducir_sonido()
 
-        # FUNCIÓN EXTERNA: self.ventana.update() (turtle.Screen)
         self.ventana.update()
-        
-        # FUNCIÓN EXTERNA: self.ventana.ontimer() (turtle.Screen)
-        # Llama a bucle_juego después de self.VELOCIDAD_JUEGO milisegundos (Recursión del juego)
         self.ventana.ontimer(self.bucle_juego, self.VELOCIDAD_JUEGO)
 
 
